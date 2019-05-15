@@ -1,0 +1,95 @@
+    #include P18F4550.inc
+
+    config  FOSC = HS		
+    config  CPUDIV = OSC1_PLL2
+    config  PLLDIV = 1 
+    config  PWRT = OFF
+    config  BOR = OFF
+    config  WDT = OFF
+    config  MCLRE = ON
+    config  LVP = OFF
+    config  ICPRT = OFF
+    config  XINST = OFF
+    config  DEBUG = OFF
+    config  FCMEN = OFF
+    config  IESO = OFF
+    config  LPT1OSC = OFF
+    config  CCP2MX = ON
+    config  PBADEN = OFF
+    config  USBDIV = 2
+    config  VREGEN = OFF
+
+
+
+    org 0x0000
+    BRA START
+    org 0x0008
+    RCALL HISR
+    RETFIE FAST
+    org 0x0018
+    RETFIE
+    
+START
+    MOVLW 0x0F
+    MOVWF ADCON1, ACCESS
+    MOVLW 0x07
+    MOVWF CMCON, ACCESS
+    
+   ; ENABLE THE PRIORITY INTERRUPT
+    BSF RCON, IPEN, ACCESS
+    
+    ; INT0
+    BSF INTCON2, INTEDG0, ACCESS
+    BCF INTCON, INT0IF, ACCESS
+    BSF INTCON, INT0IE, ACCESS
+    
+    ; ENABLE LOW AND HIGH PRIORITY GLOBAL INTERRUPT
+    BSF INTCON, GIEH, ACCESS
+    BSF INTCON, GIEL, ACCESS
+
+    ; ENABLE RX INTERRUPT
+    BSF IPR1, RCIP, ACCESS
+    BSF PIE1, RCIE, ACCESS
+    
+    ; 9600 BAUD
+    ; SYNC = 0, BRG16 = 1, BRGH = 1
+    MOVLW 0x02
+    MOVWF SPBRGH, ACCESS
+    MOVLW 0x08
+    MOVWF SPBRG, ACCESS
+    
+    ; BAUDCON: 00001000
+    MOVLW 0x08
+    MOVWF BAUDCON, ACCESS
+    
+    ; ENABLE RX
+    ; RCSTA: 10010000
+    MOVLW 0x90
+    MOVWF RCSTA, ACCESS
+    
+MAIN
+    BRA MAIN
+    
+HISR    
+    CLRF LATD, ACCESS
+    BCF INTCON3, INT1IF, ACCESS
+    RETURN
+    
+RX_ISR
+    BTFSC RCSTA, FERR, ACCESS
+    BRA RX_ERR
+RX_OERR
+    BTFSS RCSTA, OERR, ACCESS
+    BRA RX_NO_ERR
+RX_ERR
+    BCF RCSTA, CREN, ACCESS
+    BSF RCSTA, CREN, ACCESS
+    RETFIE FAST
+RX_NO_ERR
+    MOVF RCREG, W, ACCESS
+    MOVWF LATD, ACCESS
+    RETFIE FAST
+    
+    
+    end
+
